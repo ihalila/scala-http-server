@@ -11,7 +11,7 @@ lazy val root = (project in file(".")).
 
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.8.0",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
-    libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.20",
-    libraryDependencies += "org.scalaz" %% "scalaz-concurrent" % "7.2.20",
+    libraryDependencies += "co.fs2" %% "fs2-core" % "0.10.1",
+    libraryDependencies += "co.fs2" %% "fs2-io" % "0.10.1",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.3" % Test
   )
