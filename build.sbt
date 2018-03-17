@@ -7,6 +7,8 @@ lazy val root = (project in file(".")).
     )),
     name := "scala-http-server",
 
+    wartremoverErrors ++= Warts.unsafe,
+
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.8.0",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
     libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.20",
