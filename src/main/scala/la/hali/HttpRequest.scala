@@ -1,11 +1,6 @@
 package la.hali
 
-import cats.effect.IO
-import fs2.io.tcp.Socket
-
 import scala.collection.mutable.ArrayBuffer
-
-case class SocketRequest(socket: Socket[IO], request: HttpRequest)
 
 sealed trait HttpRequest {
   def path: String

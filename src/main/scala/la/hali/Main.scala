@@ -10,9 +10,9 @@ object Main extends LazyLogging {
       .attempt
       .map({
         case Left(e) => logger.warn(s"Failed to handle request: $e")
-        case Right(req) =>
+        case Right((req, res)) =>
           logger.info(s"Got request: $req")
-          req.socket.write(Chunk.array(HttpResponse.error("foo"))).unsafeRunSync()
+          logger.info(s"Responded with $res")
       })
       .repeat
       .compile

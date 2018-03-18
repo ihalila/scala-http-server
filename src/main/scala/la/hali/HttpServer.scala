@@ -1,7 +1,7 @@
 package la.hali
 
 import java.net.InetSocketAddress
-import java.nio.channels.AsynchronousChannelGroup
+import java.nio.channels.{AsynchronousChannelGroup, InterruptedByTimeoutException}
 import java.util.concurrent.{Executors, TimeUnit}
 
 import cats.effect.IO
@@ -18,6 +18,15 @@ object HttpServer extends LazyLogging {
 
   def toBytes(socket: Socket[IO]): Stream[IO, Byte] = {
     socket.reads(256 * 1024, Some(FiniteDuration(1L, TimeUnit.MINUTES)))
+      .onFinalize(socket.endOfOutput)
+      .handleErrorWith({
+        case _: InterruptedByTimeoutException =>
+          logger.debug("Socket timed out.")
+          Stream.empty
+        case throwable: Throwable =>
+          logger.warn(s"Socket error encountered: $throwable")
+          Stream.empty
+      })
   }
 
   def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, HttpRequest] = {
@@ -48,17 +57,24 @@ object HttpServer extends LazyLogging {
     pullRequests(byteStream, ArrayBuffer()).stream
   }
 
-  def run: Stream[IO, SocketRequest] = {
+  def respond(request: HttpRequest): HttpResponse = ErrorResponse
+
+  case class SocketRequest(socket: Socket[IO], request: HttpRequest)
+
+  def run: Stream[IO, (HttpRequest, HttpResponse)] = {
     val executorService = Executors.newFixedThreadPool(10)
     implicit val asynchronousChannelGroup: AsynchronousChannelGroup = AsynchronousChannelGroup.withThreadPool(executorService)
     implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executorService)
 
-    (for {
-      sockets <- tcp.server[IO](new InetSocketAddress(8080))
-      socket <- sockets
-      bytes = HttpServer.toBytes(socket)
-      requests = HttpServer.toRequests(bytes)
-    } yield requests.map(r => SocketRequest(socket, r)))
-      .join(10)
+    tcp.server[IO](new InetSocketAddress(8080))
+      .flatMap(_.map(socket => {
+        HttpServer.toBytes(socket)
+          .through(HttpServer.toRequests)
+          .flatMap(request => {
+            val response = respond(request)
+            Stream.eval(socket.write(Chunk.array(response.toBytes))
+              .map(_ => (request, response)))
+          })
+      })).join(10)
   }
 }
