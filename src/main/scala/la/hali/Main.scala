@@ -13,7 +13,6 @@ object Main extends LazyLogging {
           logger.info(s"Got request: $req")
           logger.info(s"Responded with $res")
       })
-      .repeat
       .compile
       .drain
       .unsafeRunSync()
