@@ -22,7 +22,7 @@ object HttpRequest {
       // All headers are available to be read
 
       // Request line
-      val (line, tail) = chars.span(_ != '\r')
+      val (line, tail) = chars.span(_ != '\r') match { case (l, t) => (l, t.drop(2)) } // Drop \r\n
       val requestLine = new String(line.toArray)
 
       val methodSeparator = requestLine.indexOf(' ')
@@ -43,19 +43,19 @@ object HttpRequest {
         if (chars.isEmpty) {
           (headers, chars)
         } else {
-          val (h, tail) = chars.span(_ != '\r')
+          val (h, tail) = chars.span(_ != '\r') match { case (x, t) => (x, t.drop(2)) } // Drop \r\n
           if (h.isEmpty) {
             // Empty line means headers have ended
-            (headers, tail.drop(2))
+            (headers, tail)
           } else {
             val header = toHeader(h)
-            readHeaders(tail.drop(2), headers + header)
+            readHeaders(tail, headers + header)
           }
         }
       }
 
       // Convert back to bytes for reading the body
-      val (headers, remaining) = readHeaders(tail.drop(2), Map()) match { case (h, r) => (h, r.map(_.toByte)) }
+      val (headers, remaining) = readHeaders(tail, Map()) match { case (h, r) => (h, r.map(_.toByte)) }
 
       // Body
 
