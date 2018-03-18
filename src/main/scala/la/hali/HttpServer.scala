@@ -48,16 +48,17 @@ object HttpServer extends LazyLogging {
     pullRequests(byteStream, ArrayBuffer()).stream
   }
 
-  def run: Stream[IO, (Socket[IO], HttpRequest)] = {
+  def run: Stream[IO, SocketRequest] = {
     val executorService = Executors.newFixedThreadPool(10)
     implicit val asynchronousChannelGroup: AsynchronousChannelGroup = AsynchronousChannelGroup.withThreadPool(executorService)
     implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executorService)
 
-    for {
+    (for {
       sockets <- tcp.server[IO](new InetSocketAddress(8080))
       socket <- sockets
       bytes = HttpServer.toBytes(socket)
-      req <- HttpServer.toRequests(bytes)
-    } yield (socket, req)
+      requests = HttpServer.toRequests(bytes)
+    } yield requests.map(r => SocketRequest(socket, r)))
+      .join(10)
   }
 }
