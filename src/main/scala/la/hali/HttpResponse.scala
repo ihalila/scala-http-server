@@ -1,39 +1,21 @@
 package la.hali
 
 import java.nio.charset.StandardCharsets
+import java.time.{Instant, ZoneId}
+import java.time.format.DateTimeFormatter
 
-object HttpResponse {
-  def error(explanation: String): Array[Byte] = {
-    val stringBuilder = new StringBuilder()
-      .append("HTTP/1.1 200 OK\r\n")
-      .append("Date: Mon, 27 Jul 2009 12:28:53 GMT\r\n")
-      .append("Server: la.hali.scala-http-server\r\n")
-      .append("Last-Modified: Sun, 3 Mar 2018 10:41:32 EET\r\n")
-      .append("ETag: \"34aa387-d-1568eb00\"\r\n")
-      .append("Accept-Ranges: bytes\r\n")
-      .append("Content-Length: 51\r\n")
-      .append("Vary: Accept-Encoding\r\n")
-      .append("Content-Type: text/plain\r\n")
-      .append("\r\n")
-      .append("Hello World! My payload includes a trailing CRLF.\r\n")
-    stringBuilder.toString().getBytes(StandardCharsets.US_ASCII)
-  }
-}
-
-object ErrorResponse extends HttpResponse {
+object NotImplementedResponse extends HttpResponse {
   def toBytes: Array[Byte] = {
+    val message = "Not implemented yet!"
+    val date = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.now())
     val stringBuilder = new StringBuilder()
-      .append("HTTP/1.1 200 OK\r\n")
-      .append("Date: Mon, 27 Jul 2009 12:28:53 GMT\r\n")
+      .append("HTTP/1.1 501 Not Implemented\r\n")
+      .append(s"Date: $date\r\n")
       .append("Server: la.hali.scala-http-server\r\n")
-      .append("Last-Modified: Sun, 3 Mar 2018 10:41:32 EET\r\n")
-      .append("ETag: \"34aa387-d-1568eb00\"\r\n")
-      .append("Accept-Ranges: bytes\r\n")
-      .append("Content-Length: 51\r\n")
-      .append("Vary: Accept-Encoding\r\n")
+      .append(s"Content-Length: ${message.getBytes(StandardCharsets.US_ASCII).length}\r\n")
       .append("Content-Type: text/plain\r\n")
       .append("\r\n")
-      .append("Hello World! My payload includes a trailing CRLF.\r\n")
+      .append(message)
     stringBuilder.toString().getBytes(StandardCharsets.US_ASCII)
   }
 }

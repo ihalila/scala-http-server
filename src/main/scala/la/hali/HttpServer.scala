@@ -57,7 +57,7 @@ object HttpServer extends LazyLogging {
     pullRequests(byteStream, ArrayBuffer()).stream
   }
 
-  def respond(request: HttpRequest): HttpResponse = ErrorResponse
+  def respond(request: HttpRequest): HttpResponse = NotImplementedResponse
 
   case class SocketRequest(socket: Socket[IO], request: HttpRequest)
 
