@@ -13,6 +13,7 @@ import fs2.io.tcp.Socket
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.util.Try
 
 object HttpServer extends LazyLogging {
 
@@ -57,11 +58,17 @@ object HttpServer extends LazyLogging {
     pullRequests(byteStream, ArrayBuffer()).stream
   }
 
-  def respond(request: HttpRequest): HttpResponse = NotImplementedResponse
+  def respond(responder: PartialFunction[HttpRequest, HttpResponse], request: HttpRequest): HttpResponse = {
+    if (responder.isDefinedAt(request)) {
+      Try(responder.apply(request))
+        .recover { case t => ServerErrorResponse(t) }
+        .getOrElse(ServerErrorResponse(new Exception("Recovery failed")))
+    } else {
+      NotFoundResponse
+    }
+  }
 
-  case class SocketRequest(socket: Socket[IO], request: HttpRequest)
-
-  def run: Stream[IO, (HttpRequest, HttpResponse)] = {
+  def run(responder: PartialFunction[HttpRequest, HttpResponse]): Stream[IO, (HttpRequest, HttpResponse)] = {
     val executorService = Executors.newFixedThreadPool(10)
     implicit val asynchronousChannelGroup: AsynchronousChannelGroup = AsynchronousChannelGroup.withThreadPool(executorService)
     implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executorService)
@@ -71,7 +78,7 @@ object HttpServer extends LazyLogging {
         HttpServer.toBytes(socket)
           .through(HttpServer.toRequests)
           .flatMap(request => {
-            val response = respond(request)
+            val response = respond(responder, request)
             Stream.eval(socket.write(Chunk.array(response.toBytes))
               .map(_ => (request, response)))
           })

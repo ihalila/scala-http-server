@@ -5,7 +5,9 @@ import com.typesafe.scalalogging.LazyLogging
 object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {
     logger.info("Starting HTTP server")
-    HttpServer.run
+    HttpServer.run({
+      case GETRequest("/hello", _) => OKResponse("Hello from scala-http-server")
+    })
       .attempt
       .map({
         case Left(e) => logger.warn(s"Failed to handle request: $e")
