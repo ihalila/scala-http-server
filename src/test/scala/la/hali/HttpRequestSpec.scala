@@ -26,7 +26,12 @@ class HttpRequestSpec extends FlatSpec with Matchers {
       case Some((req, rem)) =>
         rem shouldBe empty
         req match {
-          case get: GETRequest => get.path shouldBe "/hello.txt"
+          case get: GETRequest =>
+            get.path shouldBe "/hello.txt"
+            get.headers.keySet.size shouldBe 3
+            get.headers("User-Agent") shouldBe "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3"
+            get.headers("Host") shouldBe "www.example.com"
+            get.headers("Accept-Language") shouldBe "en, mi"
         }
     }
   }

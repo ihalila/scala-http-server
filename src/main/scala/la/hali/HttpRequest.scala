@@ -4,9 +4,10 @@ import scala.collection.mutable.ArrayBuffer
 
 sealed trait HttpRequest {
   def path: String
+  def headers: Map[String, String]
 }
 
-case class GETRequest(override val path: String) extends HttpRequest
+case class GETRequest(override val path: String, override val headers: Map[String, String]) extends HttpRequest
 
 case class MalformedRequest(problem: String)
 
@@ -15,24 +16,55 @@ object HttpRequest {
     * and any remaining unconsumed bytes
     */
   def fromBytes(bytes: ArrayBuffer[Byte]): Option[(HttpRequest, ArrayBuffer[Byte])] = {
+    // Convert to chars for reading headers
     val chars = bytes.map(_.toChar)
     if (chars.indexOfSlice("\r\n\r\n") >= 0) {
+      // All headers are available to be read
+
+      // Request line
       val (line, tail) = chars.span(_ != '\r')
-      val statusLine = new String(line.toArray)
+      val requestLine = new String(line.toArray)
 
-      val methodSeparator = statusLine.indexOf(' ')
-      val method = statusLine.slice(0, methodSeparator)
+      val methodSeparator = requestLine.indexOf(' ')
+      val method = requestLine.slice(0, methodSeparator)
 
-      val targetSeparator = statusLine.indexOf(' ', methodSeparator + 1)
-      val target = statusLine.slice(methodSeparator + 1, targetSeparator)
+      val targetSeparator = requestLine.indexOf(' ', methodSeparator + 1)
+      val target = requestLine.slice(methodSeparator + 1, targetSeparator)
 
-      val httpVersion = statusLine.slice(targetSeparator + 1, statusLine.length)
+      //val httpVersion = requestLine.slice(targetSeparator + 1, requestLine.length)
+
+      // Headers
+      def toHeader(chars: ArrayBuffer[Char]): (String, String) = {
+        val (key, value) = chars.span(_ != ':')
+        (new String(key.toArray), new String(value.drop(1).toArray).trim)
+      }
+
+      def readHeaders(chars: ArrayBuffer[Char], headers: Map[String, String]): (Map[String, String], ArrayBuffer[Char]) = {
+        if (chars.isEmpty) {
+          (headers, chars)
+        } else {
+          val (h, tail) = chars.span(_ != '\r')
+          if (h.isEmpty) {
+            // Empty line means headers have ended
+            (headers, tail.drop(2))
+          } else {
+            val header = toHeader(h)
+            readHeaders(tail.drop(2), headers + header)
+          }
+        }
+      }
+
+      // Convert back to bytes for reading the body
+      val (headers, remaining) = readHeaders(tail.drop(2), Map()) match { case (h, r) => (h, r.map(_.toByte)) }
+
+      // Body
 
       method match {
-        case "GET" => Some(GETRequest(target), ArrayBuffer())
+        case "GET" => Some((GETRequest(target, headers), remaining))
       }
 
     } else {
+      // Headers not available yet
       None
     }
   }
