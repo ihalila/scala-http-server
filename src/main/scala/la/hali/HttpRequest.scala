@@ -2,24 +2,11 @@ package la.hali
 
 import scala.collection.mutable.ArrayBuffer
 
-sealed trait Method
-case object GET extends Method
-case object HEAD extends Method
-case object POST extends Method
-case object PUT extends Method
-case object DELETE extends Method
-case object CONNECT extends Method
-case object OPTIONS extends Method
-case object TRACE extends Method
-
 sealed trait HttpRequest {
   def path: String
-  def method: Method
 }
 
-case class GETRequest(override val path: String) extends HttpRequest {
-  override val method: GET.type = GET
-}
+case class GETRequest(override val path: String) extends HttpRequest
 
 case class MalformedRequest(problem: String)
 
