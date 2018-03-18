@@ -9,8 +9,6 @@ sealed trait HttpRequest {
 
 case class GETRequest(override val path: String, override val headers: Map[String, String]) extends HttpRequest
 
-case class MalformedRequest(problem: String)
-
 object HttpRequest {
   /** Attempt to construct an HttpRequest from the given bytes. If successful returns the request
     * and any remaining unconsumed bytes

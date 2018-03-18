@@ -20,10 +20,10 @@ object HttpServer extends LazyLogging {
     socket.reads(256 * 1024, Some(FiniteDuration(1L, TimeUnit.MINUTES)))
   }
 
-  def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, Either[MalformedRequest, HttpRequest]] = {
+  def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, HttpRequest] = {
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, Either[MalformedRequest, HttpRequest], Option[Stream[IO, Byte]]] = {
+    def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, HttpRequest, Option[Stream[IO, Byte]]] = {
       stream.pull.unconsChunk.flatMap {
         case None =>
           // End of stream
@@ -40,7 +40,7 @@ object HttpServer extends LazyLogging {
               // Not enough bytes to form a valid request, keep reading
               pullRequests(stream, byteBuffer)
             case Some((req, unusedBytes)) =>
-              Pull.output1(Right(req)) >> pullRequests(stream, unusedBytes)
+              Pull.output1(req) >> pullRequests(stream, unusedBytes)
           }
       }
     }
@@ -48,7 +48,7 @@ object HttpServer extends LazyLogging {
     pullRequests(byteStream, ArrayBuffer()).stream
   }
 
-  def run: Stream[IO, (Socket[IO], Either[MalformedRequest, HttpRequest])] = {
+  def run: Stream[IO, (Socket[IO], HttpRequest)] = {
     val executorService = Executors.newFixedThreadPool(10)
     implicit val asynchronousChannelGroup: AsynchronousChannelGroup = AsynchronousChannelGroup.withThreadPool(executorService)
     implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executorService)
