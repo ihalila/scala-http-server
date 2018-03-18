@@ -7,7 +7,7 @@ lazy val root = (project in file(".")).
     )),
     name := "scala-http-server",
 
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-Xlint:_"),
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-Xlint:_", "-Xfatal-warnings"),
     wartremoverErrors ++= Warts.unsafe,
 
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.8.0",

@@ -1,7 +1,6 @@
 package la.hali
 
 import com.typesafe.scalalogging.LazyLogging
-import fs2.Chunk
 
 object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {
