@@ -22,17 +22,18 @@ class HttpRequestSpec extends FlatSpec with Matchers {
     val requestString = stringBuilder.toString()
 
     HttpRequest.fromBytes(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
-      case None => fail()
-      case Some((req, rem)) =>
+      case Done(req, rem) =>
         rem shouldBe empty
         req match {
-          case get: GETRequest =>
+          case get: Get =>
             get.path shouldBe "/hello.txt"
             get.headers.keySet.size shouldBe 3
             get.headers("User-Agent") shouldBe "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3"
             get.headers("Host") shouldBe "www.example.com"
             get.headers("Accept-Language") shouldBe "en, mi"
+          case _ => fail()
         }
+      case _ => fail()
     }
   }
 
@@ -53,8 +54,8 @@ class HttpRequestSpec extends FlatSpec with Matchers {
     val requestString = stringBuilder.toString()
     val reqBytes = ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)
 
-    val Some((req1, rem)) = HttpRequest.fromBytes(reqBytes)
-    val Some((req2, _)) = HttpRequest.fromBytes(rem)
+    val Done(req1, rem) = HttpRequest.fromBytes(reqBytes)
+    val Done(req2, _) = HttpRequest.fromBytes(rem)
 
     req1.path shouldBe "/hello.txt"
     req2.path shouldBe "/foo/bar"

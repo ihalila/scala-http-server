@@ -1,19 +1,30 @@
 package la.hali
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Try
 
 sealed trait HttpRequest {
   def path: String
-  def headers: Map[String, String]
+  def headers: Headers
 }
 
-case class GETRequest(override val path: String, override val headers: Map[String, String]) extends HttpRequest
+final case class Get(override val path: String, override val headers: Headers) extends HttpRequest {
+  override def toString: String = s"GET: $path"
+}
+final case class Post(override val path: String, override val headers: Headers, body: Array[Byte]) extends HttpRequest {
+  override def toString: String = s"POST: $path [${body.length} bytes]"
+}
+
+sealed trait RequestParsingResult
+final case class Done(request: HttpRequest, remainingBytes: ArrayBuffer[Byte]) extends RequestParsingResult
+case object NeedsMoreBytes extends RequestParsingResult
+case object MalformedRequest extends RequestParsingResult
 
 object HttpRequest {
   /** Attempt to construct an HttpRequest from the given bytes. If successful returns the request
     * and any remaining unconsumed bytes
     */
-  def fromBytes(bytes: ArrayBuffer[Byte]): Option[(HttpRequest, ArrayBuffer[Byte])] = {
+  def fromBytes(bytes: ArrayBuffer[Byte]): RequestParsingResult = {
     // Convert to chars for reading headers
     val chars = bytes.map(_.toChar)
     if (chars.indexOfSlice("\r\n\r\n") >= 0) {
@@ -34,10 +45,10 @@ object HttpRequest {
       // Headers
       def toHeader(chars: ArrayBuffer[Char]): (String, String) = {
         val (key, value) = chars.span(_ != ':')
-        (new String(key.toArray), new String(value.drop(1).toArray).trim)
+        (new String(key.toArray).toLowerCase, new String(value.drop(1).toArray).trim)
       }
 
-      def readHeaders(chars: ArrayBuffer[Char], headers: Map[String, String]): (Map[String, String], ArrayBuffer[Char]) = {
+      def readHeaders(chars: ArrayBuffer[Char], headers: Headers): (Headers, ArrayBuffer[Char]) = {
         if (chars.isEmpty) {
           (headers, chars)
         } else {
@@ -53,17 +64,29 @@ object HttpRequest {
       }
 
       // Convert back to bytes for reading the body
-      val (headers, remaining) = readHeaders(tail, Map()) match { case (h, r) => (h, r.map(_.toByte)) }
+      val (headers, remaining) = readHeaders(tail, Headers()) match { case (h, r) => (h, r.map(_.toByte)) }
 
-      // Body
+      // Body // TODO: Support Transfer-Encoding
+      val contentLength = headers.get("Content-Length").map(cl => Try(cl.toInt).getOrElse(-1)) // Use -1 to represent a malformed value
+      val bodyLength = contentLength.getOrElse(0) // No header means no body
 
-      method match {
-        case "GET" => Some((GETRequest(target, headers), remaining))
+      if (remaining.length < bodyLength) {
+        NeedsMoreBytes
+      } else if (bodyLength < 0) {
+        MalformedRequest
+      } else {
+
+        val (body, tail) = remaining.splitAt(bodyLength)
+
+        method match {
+          case "GET" => Done(Get(target, headers), tail)
+          case "POST" => Done(Post(target, headers, body.toArray), tail)
+          case _ => MalformedRequest
+        }
       }
-
     } else {
-      // Headers not available yet
-      None
+      // Headers not completely available yet
+      NeedsMoreBytes
     }
   }
 }

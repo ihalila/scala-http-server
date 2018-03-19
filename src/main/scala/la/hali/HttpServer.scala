@@ -46,11 +46,13 @@ object HttpServer extends LazyLogging {
         case Some((byteChunk, stream)) =>
           byteBuffer.appendAll(byteChunk.toVector)
           HttpRequest.fromBytes(byteBuffer) match {
-            case None =>
+            case NeedsMoreBytes =>
               // Not enough bytes to form a valid request, keep reading
               pullRequests(stream, byteBuffer)
-            case Some((req, unusedBytes)) =>
+            case Done(req, unusedBytes) =>
               Pull.output1(req) >> pullRequests(stream, unusedBytes)
+            case MalformedRequest =>
+              Pull.raiseError(new Exception("Malformed request"))
           }
       }
     }

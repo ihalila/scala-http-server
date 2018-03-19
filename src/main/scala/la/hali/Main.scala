@@ -6,7 +6,7 @@ object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {
     logger.info("Starting HTTP server")
     HttpServer.run({
-      case GETRequest("/hello", _) => OKResponse("Hello from scala-http-server")
+      case Get("/hello", _) => OKResponse("Hello from scala-http-server")
     })
       .attempt
       .map({
