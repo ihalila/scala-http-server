@@ -32,9 +32,8 @@ object HttpServer extends LazyLogging {
 
   def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, Try[HttpRequest]] = {
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] = {
-      stream.pull.unconsChunk.flatMap {
+      stream.pull.unconsChunk.flatMap[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] {
         case None =>
           // End of stream
           // TODO: Handle remaining bytes
@@ -80,8 +79,8 @@ object HttpServer extends LazyLogging {
 
     tcp.server[IO](new InetSocketAddress(8080))
       .flatMap(_.map(socket => {
-        HttpServer.toBytes(socket)
-          .through(HttpServer.toRequests)
+        toBytes(socket)
+          .through(toRequests)
           .map({
             case Failure(_) => (None, BadRequestResponse)
             case Success(req) => (Some(req), respond(responder, req))
