@@ -10,7 +10,7 @@ trait HttpResponse {
 
 object NotImplementedResponse extends HttpResponse {
   def toBytes: Array[Byte] = {
-    val message = "Not implemented yet!"
+    val message = "Not implemented"
     val date = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.now())
     val stringBuilder = new StringBuilder()
       .append("HTTP/1.1 501 Not Implemented\r\n")

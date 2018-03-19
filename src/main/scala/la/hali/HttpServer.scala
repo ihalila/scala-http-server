@@ -51,8 +51,8 @@ object HttpServer extends LazyLogging {
               pullRequests(stream, byteBuffer)
             case Done(req, unusedBytes) =>
               Pull.output1(req) >> pullRequests(stream, unusedBytes)
-            case MalformedRequest =>
-              Pull.raiseError(new Exception("Malformed request"))
+            case MalformedRequest(message) =>
+              Pull.raiseError(new Exception(s"Malformed request: $message"))
           }
       }
     }
@@ -66,7 +66,10 @@ object HttpServer extends LazyLogging {
         .recover { case t => ServerErrorResponse(t) }
         .getOrElse(ServerErrorResponse(new Exception("Recovery failed")))
     } else {
-      NotFoundResponse
+      request match {
+        case _: UnknownMethod => NotImplementedResponse
+        case _ => NotFoundResponse
+      }
     }
   }
 

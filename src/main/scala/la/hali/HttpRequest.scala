@@ -14,11 +14,12 @@ final case class Get(override val path: String, override val headers: Headers) e
 final case class Post(override val path: String, override val headers: Headers, body: Array[Byte]) extends HttpRequest {
   override def toString: String = s"POST: $path [${body.length} bytes]"
 }
+final case class UnknownMethod(override val path: String, override val headers: Headers) extends HttpRequest
 
 sealed trait RequestParsingResult
 final case class Done(request: HttpRequest, remainingBytes: ArrayBuffer[Byte]) extends RequestParsingResult
 case object NeedsMoreBytes extends RequestParsingResult
-case object MalformedRequest extends RequestParsingResult
+final case class MalformedRequest(message: String) extends RequestParsingResult
 
 object HttpRequest {
   /** Attempt to construct an HttpRequest from the given bytes. If successful returns the request
@@ -73,7 +74,7 @@ object HttpRequest {
       if (remaining.length < bodyLength) {
         NeedsMoreBytes
       } else if (bodyLength < 0) {
-        MalformedRequest
+        MalformedRequest(s"Malformed Content-Length: $bodyLength")
       } else {
 
         val (body, tail) = remaining.splitAt(bodyLength)
@@ -81,7 +82,7 @@ object HttpRequest {
         method match {
           case "GET" => Done(Get(target, headers), tail)
           case "POST" => Done(Post(target, headers, body.toArray), tail)
-          case _ => MalformedRequest
+          case _ => Done(UnknownMethod(target, headers), tail)
         }
       }
     } else {
