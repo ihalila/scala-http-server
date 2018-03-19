@@ -24,6 +24,22 @@ object NotImplementedResponse extends HttpResponse {
   }
 }
 
+object BadRequestResponse extends HttpResponse {
+  def toBytes: Array[Byte] = {
+    val message = "400 - Bad Request"
+    val date = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.now())
+    val stringBuilder = new StringBuilder()
+      .append("HTTP/1.1 404 Bad Request\r\n")
+      .append(s"Date: $date\r\n")
+      .append("Server: la.hali.scala-http-server\r\n")
+      .append(s"Content-Length: ${message.getBytes(StandardCharsets.US_ASCII).length}\r\n")
+      .append("Content-Type: text/plain\r\n")
+      .append("\r\n")
+      .append(message)
+    stringBuilder.toString().getBytes(StandardCharsets.US_ASCII)
+  }
+}
+
 object NotFoundResponse extends HttpResponse {
   def toBytes: Array[Byte] = {
     val message = "404 - Not Found"

@@ -13,7 +13,7 @@ import fs2.io.tcp.Socket
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object HttpServer extends LazyLogging {
 
@@ -30,10 +30,10 @@ object HttpServer extends LazyLogging {
       })
   }
 
-  def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, HttpRequest] = {
+  def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, Try[HttpRequest]] = {
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, HttpRequest, Option[Stream[IO, Byte]]] = {
+    def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] = {
       stream.pull.unconsChunk.flatMap {
         case None =>
           // End of stream
@@ -50,9 +50,9 @@ object HttpServer extends LazyLogging {
               // Not enough bytes to form a valid request, keep reading
               pullRequests(stream, byteBuffer)
             case Done(req, unusedBytes) =>
-              Pull.output1(req) >> pullRequests(stream, unusedBytes)
+              Pull.output1(Success(req)) >> pullRequests(stream, unusedBytes)
             case MalformedRequest(message) =>
-              Pull.raiseError(new Exception(s"Malformed request: $message"))
+              Pull.output1(Failure(new Exception(message))) >> Pull.pure(None)
           }
       }
     }
@@ -73,7 +73,7 @@ object HttpServer extends LazyLogging {
     }
   }
 
-  def run(responder: PartialFunction[HttpRequest, HttpResponse]): Stream[IO, (HttpRequest, HttpResponse)] = {
+  def run(responder: PartialFunction[HttpRequest, HttpResponse]): Stream[IO, (Option[HttpRequest], HttpResponse)] = {
     val executorService = Executors.newFixedThreadPool(10)
     implicit val asynchronousChannelGroup: AsynchronousChannelGroup = AsynchronousChannelGroup.withThreadPool(executorService)
     implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executorService)
@@ -82,8 +82,11 @@ object HttpServer extends LazyLogging {
       .flatMap(_.map(socket => {
         HttpServer.toBytes(socket)
           .through(HttpServer.toRequests)
-          .flatMap(request => {
-            val response = respond(responder, request)
+          .map({
+            case Failure(_) => (None, BadRequestResponse)
+            case Success(req) => (Some(req), respond(responder, req))
+          })
+          .flatMap({ case (request, response) =>
             Stream.eval(socket.write(Chunk.array(response.toBytes))
               .map(_ => (request, response)))
           })
