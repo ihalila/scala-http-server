@@ -9,7 +9,7 @@ import scala.collection.mutable.ArrayBuffer
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class HttpRequestSpec extends FlatSpec with Matchers {
 
-  "A GETRequest" should "be parsed from bytes" in {
+  "A Get" should "be parsed from bytes" in {
 
     val stringBuilder =
       new StringBuilder()
@@ -59,5 +59,36 @@ class HttpRequestSpec extends FlatSpec with Matchers {
 
     req1.path shouldBe "/hello.txt"
     req2.path shouldBe "/foo/bar"
+  }
+
+  "A Post" should "be parsed from bytes" in {
+
+    val requestString =
+      new StringBuilder()
+        .append("POST /api/nums HTTP/1.1\r\n")
+        .append("User-Agent: curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3\r\n")
+        .append("Host: www.hali.la\r\n")
+        .append("Accept-Language: fi\r\n")
+        .append("Content-Length: 17\r\n")
+        .append("\r\n")
+        .append("12345678901234567")
+        .toString()
+
+    HttpRequest.fromBytes(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+      case Done(req, rem) =>
+        rem shouldBe empty
+        req match {
+          case post: Post =>
+            post.path shouldBe "/api/nums"
+            post.headers.keySet.size shouldBe 4
+            post.headers("User-Agent") shouldBe "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3"
+            post.headers("Host") shouldBe "www.hali.la"
+            post.headers("Accept-Language") shouldBe "fi"
+            post.headers("Content-Length") shouldBe "17"
+            post.body shouldBe Array(49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51, 52, 53, 54, 55)
+          case _ => fail()
+        }
+      case _ => fail()
+    }
   }
 }
