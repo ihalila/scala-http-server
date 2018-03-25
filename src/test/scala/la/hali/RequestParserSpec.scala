@@ -7,9 +7,9 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.collection.mutable.ArrayBuffer
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
-class HttpRequestSpec extends FlatSpec with Matchers {
+class RequestParserSpec extends FlatSpec with Matchers {
 
-  "A Get" should "be parsed from bytes" in {
+  "RquestParser" should "parse a GET" in {
 
     val stringBuilder =
       new StringBuilder()
@@ -21,7 +21,7 @@ class HttpRequestSpec extends FlatSpec with Matchers {
 
     val requestString = stringBuilder.toString()
 
-    HttpRequest.fromBytes(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+    RequestParser.beginParsing(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
       case Done(req, rem) =>
         rem shouldBe empty
         req match {
@@ -54,15 +54,14 @@ class HttpRequestSpec extends FlatSpec with Matchers {
     val requestString = stringBuilder.toString()
     val reqBytes = ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)
 
-    val Done(req1, rem) = HttpRequest.fromBytes(reqBytes)
-    val Done(req2, _) = HttpRequest.fromBytes(rem)
+    val Done(req1, rem) = RequestParser.beginParsing(reqBytes)
+    val Done(req2, _) = RequestParser.beginParsing(rem)
 
     req1.path shouldBe "/hello.txt"
     req2.path shouldBe "/foo/bar"
   }
 
-  "A Post" should "be parsed from bytes" in {
-
+  it should "parse a POST" in {
     val requestString =
       new StringBuilder()
         .append("POST /api/nums HTTP/1.1\r\n")
@@ -74,7 +73,37 @@ class HttpRequestSpec extends FlatSpec with Matchers {
         .append("12345678901234567")
         .toString()
 
-    HttpRequest.fromBytes(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+    RequestParser.beginParsing(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+      case Done(req, rem) =>
+        rem shouldBe empty
+        req match {
+          case post: Post =>
+            post.path shouldBe "/api/nums"
+            post.headers.keySet.size shouldBe 4
+            post.headers("User-Agent") shouldBe "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3"
+            post.headers("Host") shouldBe "www.hali.la"
+            post.headers("Accept-Language") shouldBe "fi"
+            post.headers("Content-Length") shouldBe "17"
+            post.body shouldBe Array(49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51, 52, 53, 54, 55)
+          case _ => fail()
+        }
+      case _ => fail()
+    }
+  }
+
+  it should "build a request from parts" in {
+    def toBytes(s: String) = ArrayBuffer(s.getBytes(StandardCharsets.US_ASCII): _*)
+
+    val result =
+      RequestParser.beginParsing(toBytes("POST /api/nums HT"))
+        .append(toBytes("P/1.1\r\nUser-Agent: curl/7"))
+        .append(toBytes(".16.3 libcurl/7.16.3 OpenSSL/0."))
+        .append(toBytes("9.7l zlib/1.2.3\r\n"))
+        .append(toBytes("Host: www.hali.la\r\nAccept-Language: fi\r\nContent-Length: 17\r\n"))
+        .append(toBytes("\r\n1234567890"))
+        .append(toBytes("1234567"))
+
+    result match {
       case Done(req, rem) =>
         rem shouldBe empty
         req match {

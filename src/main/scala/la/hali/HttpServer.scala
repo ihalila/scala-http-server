@@ -32,31 +32,28 @@ object HttpServer extends LazyLogging {
 
   def toRequests(byteStream: Stream[IO, Byte]): Stream[IO, Try[HttpRequest]] = {
 
-    def pullRequests(stream: Stream[IO, Byte], byteBuffer: ArrayBuffer[Byte]): Pull[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] = {
+    def pullRequests(stream: Stream[IO, Byte], requestParser: RequestParser): Pull[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] = {
       stream.pull.unconsChunk.flatMap[IO, Try[HttpRequest], Option[Stream[IO, Byte]]] {
         case None =>
           // End of stream
           // TODO: Handle remaining bytes
-          if (byteBuffer.nonEmpty) {
-            logger.warn(s"Discarding ${byteBuffer.length} bytes")
-          }
           Pull.pure(None)
 
         case Some((byteChunk, stream)) =>
-          byteBuffer.appendAll(byteChunk.toVector)
-          HttpRequest.fromBytes(byteBuffer) match {
-            case NeedsMoreBytes =>
-              // Not enough bytes to form a valid request, keep reading
-              pullRequests(stream, byteBuffer)
-            case Done(req, unusedBytes) =>
-              Pull.output1(Success(req)) >> pullRequests(stream, unusedBytes)
+          requestParser.append(byteChunk.toVector) match {
             case MalformedRequest(message) =>
               Pull.output1(Failure(new Exception(message))) >> Pull.pure(None)
+
+            case Done(req, tail) =>
+              Pull.output1(Success(req)) >> pullRequests(stream, RequestParser.beginParsing(tail))
+
+            case unfinishedParser =>
+              pullRequests(stream, unfinishedParser)
           }
       }
     }
 
-    pullRequests(byteStream, ArrayBuffer()).stream
+    pullRequests(byteStream, RequestParser.beginParsing(ArrayBuffer())).stream
   }
 
   def respond(responder: PartialFunction[HttpRequest, HttpResponse], request: HttpRequest): HttpResponse = {
