@@ -10,7 +10,6 @@ import fs2._
 import fs2.io.tcp
 import fs2.io.tcp.Socket
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.{Failure, Success, Try}
@@ -53,7 +52,7 @@ object HttpServer extends LazyLogging {
       }
     }
 
-    pullRequests(byteStream, RequestParser.beginParsing(ArrayBuffer())).stream
+    pullRequests(byteStream, RequestParser.beginParsing(Array())).stream
   }
 
   def respond(responder: PartialFunction[HttpRequest, HttpResponse], request: HttpRequest): HttpResponse = {

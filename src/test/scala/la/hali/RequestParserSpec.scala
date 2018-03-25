@@ -4,8 +4,6 @@ import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.collection.mutable.ArrayBuffer
-
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class RequestParserSpec extends FlatSpec with Matchers {
 
@@ -21,7 +19,7 @@ class RequestParserSpec extends FlatSpec with Matchers {
 
     val requestString = stringBuilder.toString()
 
-    RequestParser.beginParsing(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+    RequestParser.beginParsing(requestString.getBytes(StandardCharsets.US_ASCII)) match {
       case Done(req, rem) =>
         rem shouldBe empty
         req match {
@@ -52,7 +50,7 @@ class RequestParserSpec extends FlatSpec with Matchers {
         .append("\r\n")
 
     val requestString = stringBuilder.toString()
-    val reqBytes = ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)
+    val reqBytes = requestString.getBytes(StandardCharsets.US_ASCII)
 
     val Done(req1, rem) = RequestParser.beginParsing(reqBytes)
     val Done(req2, _) = RequestParser.beginParsing(rem)
@@ -73,7 +71,7 @@ class RequestParserSpec extends FlatSpec with Matchers {
         .append("12345678901234567")
         .toString()
 
-    RequestParser.beginParsing(ArrayBuffer(requestString.getBytes(StandardCharsets.US_ASCII): _*)) match {
+    RequestParser.beginParsing(requestString.getBytes(StandardCharsets.US_ASCII)) match {
       case Done(req, rem) =>
         rem shouldBe empty
         req match {
@@ -92,7 +90,7 @@ class RequestParserSpec extends FlatSpec with Matchers {
   }
 
   it should "build a request from parts" in {
-    def toBytes(s: String) = ArrayBuffer(s.getBytes(StandardCharsets.US_ASCII): _*)
+    def toBytes(s: String) = s.getBytes(StandardCharsets.US_ASCII)
 
     val result =
       RequestParser.beginParsing(toBytes("POST /api/nums HT"))
