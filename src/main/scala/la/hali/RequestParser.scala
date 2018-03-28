@@ -2,25 +2,17 @@ package la.hali
 
 import scala.util.Try
 
-sealed trait HttpRequest {
-  def path: String
-
-  def headers: Headers
-}
-
-final case class Get(override val path: String, override val headers: Headers) extends HttpRequest {
-  override def toString: String = s"GET: $path"
-}
-
-final case class Post(override val path: String, override val headers: Headers, body: Array[Byte]) extends HttpRequest {
-  override def toString: String = s"POST: $path [${body.length} bytes]"
-}
-
-final case class UnknownMethod(override val path: String, override val headers: Headers) extends HttpRequest
-
 object RequestParser {
   def beginParsing(bytes: Array[Byte]): RequestParser =
     ParsingRequestLine(Array()).append(bytes)
+
+  def toRequest(path: String, method: String, headers: Headers, body: Array[Byte]): HttpRequest =
+    method match {
+      case "GET" => Get(path, headers)
+      case "POST" => Post(path, headers, body)
+      case "HEAD" => Head(path, headers)
+      case _ => UnknownMethod(path, headers)
+    }
 }
 
 sealed trait RequestParser {
@@ -72,11 +64,7 @@ case class ParsingHeaders(method: String, target: String, httpVersion: String, h
         if (bodyLength > 0) {
           ParsingBody(method, target, httpVersion, headers, tailBytes).append(Array[Byte]())
         } else if (bodyLength == 0) {
-          Done(method match {
-            case "GET" => Get(target, headers)
-            case "POST" => Post(target, headers, Array())
-            case _ => UnknownMethod(target, headers)
-          }, tailBytes)
+          Done(RequestParser.toRequest(target, method, headers, Array()), tailBytes)
         } else {
           MalformedRequest(s"Malformed Content-Length: $bodyLength")
         }
@@ -97,11 +85,7 @@ case class ParsingBody(method: String, target: String, httpVersion: String, head
     val allBytes = bytes ++ newBytes
     if (allBytes.length >= bodyLength) {
       val (bodyBytes, tailBytes) = allBytes.splitAt(bodyLength)
-      Done(method match {
-        case "GET" => Get(target, headers)
-        case "POST" => Post(target, headers, bodyBytes)
-        case _ => UnknownMethod(target, headers)
-      }, tailBytes)
+      Done(RequestParser.toRequest(target, method, headers, bodyBytes), tailBytes)
     } else {
       ParsingBody(method, target, httpVersion, headers, allBytes)
     }
