@@ -1,4 +1,4 @@
-package la.hali
+package la.hali.http
 
 object Headers {
   def apply() = new Headers(Map())

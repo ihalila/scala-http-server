@@ -1,4 +1,4 @@
-package la.hali
+package la.hali.http
 
 import java.net.InetSocketAddress
 import java.nio.channels.{AsynchronousChannelGroup, InterruptedByTimeoutException}

@@ -1,4 +1,4 @@
-package la.hali
+package la.hali.http
 
 import scala.util.Try
 

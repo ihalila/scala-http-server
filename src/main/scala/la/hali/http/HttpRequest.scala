@@ -1,4 +1,4 @@
-package la.hali
+package la.hali.http
 
 sealed trait HttpRequest {
   def path: String

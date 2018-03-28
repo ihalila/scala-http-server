@@ -1,4 +1,4 @@
-package la.hali
+package la.hali.http
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
