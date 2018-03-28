@@ -1,7 +1,7 @@
 package la.hali
 
 import com.typesafe.scalalogging.LazyLogging
-import la.hali.http.{HttpServer, OKResponse}
+import la.hali.http.{Get, HttpServer, OKResponse}
 
 object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {
