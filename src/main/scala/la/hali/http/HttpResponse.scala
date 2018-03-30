@@ -35,7 +35,7 @@ object HttpResponse {
   ))
 }
 
-class NotImplemented(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+class NotImplemented private(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
   override type Self = NotImplemented
 
   override def copy(statusLine: String, headers: Headers, body: Array[Byte]): NotImplemented =
@@ -53,7 +53,7 @@ object NotImplemented {
 }
 
 
-class BadRequest(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+class BadRequest private(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
   override type Self = BadRequest
 
   override def copy(statusLine: String, headers: Headers, body: Array[Byte]): BadRequest =
@@ -70,7 +70,7 @@ object BadRequest {
   }
 }
 
-class NotFound(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+class NotFound private(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
   override type Self = NotFound
 
   override def copy(statusLine: String, headers: Headers, body: Array[Byte]): NotFound =
