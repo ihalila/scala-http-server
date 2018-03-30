@@ -4,54 +4,118 @@ import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
 
-trait HttpResponse {
-  def toBytes: Array[Byte]
+abstract class HttpResponse(val statusLine: String, val headers: Headers, val body: Array[Byte]) {
+  type Self <: HttpResponse
+
+  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+  def copy(statusLine: String = this.statusLine, headers: Headers = this.headers, body: Array[Byte] = this.body): Self
+
+  def toBytes: Array[Byte] =
+    new StringBuilder(HttpResponse.statusLine(statusLine))
+      .append(headers.toString())
+      .append("\r\n")
+      .toString()
+      .getBytes(StandardCharsets.US_ASCII) ++ body
 }
 
 object HttpResponse {
-  def defaultHeaders: String = {
+  def statusLine(status: String): String = s"HTTP/1.1 $status\r\n"
+
+  def headers: Headers = {
     val date = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.now())
-    s"Date: $date\r\n" +
-      "Server: la.hali.scala-http-server\r\n"
+    Headers(Map(
+      "Date" -> date,
+      "Server" -> "la.hali.scala-http-server"
+    ))
   }
 
-  def contentHeaders(body: String): String = {
-    s"Content-Length: ${body.getBytes(StandardCharsets.US_ASCII).length}\r\n" +
-      "Content-Type: text/plain\r\n"
+  def contentHeads(body: String): Headers = Headers(Map(
+    "Content-Length" -> s"${body.getBytes(StandardCharsets.US_ASCII).length}",
+    "Content-Type" -> "text/plain"
+  ))
+}
+
+class NotImplemented(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+  override type Self = NotImplemented
+
+  override def copy(statusLine: String, headers: Headers, body: Array[Byte]): NotImplemented =
+    new NotImplemented(statusLine, headers, body)
+}
+
+object NotImplemented {
+  val response: NotImplemented = {
+    val message: String = "501 - Not Implemented"
+    new NotImplemented(
+      "501 Not Implemented",
+      HttpResponse.headers ++ HttpResponse.contentHeads(message),
+      message.getBytes(StandardCharsets.US_ASCII))
   }
+}
 
-  def toBytes(response: String, message: Option[String]): Array[Byte] = {
-    new StringBuilder(s"HTTP/1.1 $response\r\n")
-      .append(HttpResponse.defaultHeaders)
-      .append(message.map(contentHeaders).getOrElse(""))
-      .append("\r\n")
-      .append(message.getOrElse(""))
-      .toString()
-      .getBytes(StandardCharsets.US_ASCII)
+
+class BadRequest(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+  override type Self = BadRequest
+
+  override def copy(statusLine: String, headers: Headers, body: Array[Byte]): BadRequest =
+    new BadRequest(statusLine, headers, body)
+}
+
+object BadRequest {
+  val response: BadRequest = {
+    val message: String = "400 - Bad Request"
+    new BadRequest(
+      "400 Bad Request",
+      HttpResponse.headers ++ HttpResponse.contentHeads(message),
+      message.getBytes(StandardCharsets.US_ASCII))
   }
 }
 
-object NotImplementedResponse extends HttpResponse {
-  def toBytes: Array[Byte] =
-    HttpResponse.toBytes("501 Not Implemented", Some("501 - Not Implemented"))
+class NotFound(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+  override type Self = NotFound
+
+  override def copy(statusLine: String, headers: Headers, body: Array[Byte]): NotFound =
+    new NotFound(statusLine, headers, body)
 }
 
-object BadRequestResponse extends HttpResponse {
-  def toBytes: Array[Byte] =
-    HttpResponse.toBytes("404 Bad Request", Some("400 - Bad Request"))
+object NotFound {
+  val response: NotFound = {
+    val message: String = "404 - Not Found"
+    new NotFound(
+      "404 Not Found",
+      HttpResponse.headers ++ HttpResponse.contentHeads(message),
+      message.getBytes(StandardCharsets.US_ASCII))
+  }
 }
 
-object NotFoundResponse extends HttpResponse {
-  def toBytes: Array[Byte] =
-    HttpResponse.toBytes("404 Not Found", Some("404 - Not Found"))
+class ServerError private(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+  override type Self = ServerError
+
+  override def copy(statusLine: String, headers: Headers, body: Array[Byte]): ServerError =
+    new ServerError(statusLine, headers, body)
 }
 
-case class ServerErrorResponse(throwable: Throwable) extends HttpResponse {
-  def toBytes: Array[Byte] =
-    HttpResponse.toBytes("500 Internal Server Error", Some(s"500 - Internal Server Error\n$throwable"))
+object ServerError {
+  def response(throwable: Throwable): ServerError = {
+    val message: String = s"500 - Internal Server Error\n$throwable"
+    new ServerError(
+      "500 Internal Server Error",
+      HttpResponse.headers ++ HttpResponse.contentHeads(message),
+      message.getBytes(StandardCharsets.US_ASCII))
+  }
 }
 
-case class OKResponse(content: String) extends HttpResponse {
-  def toBytes: Array[Byte] =
-    HttpResponse.toBytes("200 OK", Some(content))
+class OK private(statusLine: String, headers: Headers, body: Array[Byte]) extends HttpResponse(statusLine, headers, body) {
+  override type Self = OK
+
+  override def copy(statusLine: String, headers: Headers, body: Array[Byte]): OK =
+    new OK(statusLine, headers, body)
+}
+
+object OK {
+  def response(content: String): OK = {
+    new OK(
+      "200 OK",
+      HttpResponse.headers ++ HttpResponse.contentHeads(content),
+      content.getBytes(StandardCharsets.US_ASCII))
+  }
 }

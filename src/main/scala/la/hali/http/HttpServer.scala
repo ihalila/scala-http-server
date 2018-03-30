@@ -56,15 +56,21 @@ object HttpServer extends LazyLogging {
   }
 
   def respond(responder: PartialFunction[HttpRequest, HttpResponse], request: HttpRequest): HttpResponse = {
-    if (responder.isDefinedAt(request)) {
+    def generateResponse(request: HttpRequest) = if (responder.isDefinedAt(request)) {
       Try(responder.apply(request))
-        .recover { case t => ServerErrorResponse(t) }
-        .getOrElse(ServerErrorResponse(new Exception("Recovery failed")))
+        .recover { case t => ServerError.response(t) }
+        .getOrElse(ServerError.response(new Exception("Recovery failed")))
     } else {
       request match {
-        case _: UnknownMethod => NotImplementedResponse
-        case _ => NotFoundResponse
+        case _: UnknownMethod => NotImplemented.response
+        case _ => NotFound.response
       }
+    }
+
+    request match {
+      // Same as GET, but only transfer the status line and header section.
+      case h: Head => generateResponse(Get(h.path, h.headers)).copy(body = Array())
+      case r => generateResponse(r)
     }
   }
 
@@ -78,7 +84,7 @@ object HttpServer extends LazyLogging {
         toBytes(socket)
           .through(toRequests)
           .map({
-            case Failure(_) => (None, BadRequestResponse)
+            case Failure(_) => (None, BadRequest.response)
             case Success(req) => (Some(req), respond(responder, req))
           })
           .flatMap({ case (request, response) =>
